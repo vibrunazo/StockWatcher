@@ -2,6 +2,7 @@ package com.google.gwt.sample.stockwatcher.client;
 
 import java.io.Serializable;
 
+@SuppressWarnings("serial")
 public class LoginInfo implements Serializable {
 
 	private boolean loggedIn = false;

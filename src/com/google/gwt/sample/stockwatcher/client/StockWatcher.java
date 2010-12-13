@@ -1,5 +1,5 @@
 package com.google.gwt.sample.stockwatcher.client;
-// this is some random useless comment
+
 import com.google.gwt.core.client.EntryPoint;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.event.dom.client.ClickEvent;
@@ -40,6 +40,7 @@ public class StockWatcher implements EntryPoint {
 	private Label loginLabel = new Label("Please sign in to your Google Account to access the StockWatcher application.");
 	private Anchor signInLink = new Anchor("Sign In");
 	private Anchor signOutLink = new Anchor("Sign Out");
+	private final StockServiceAsync stockService = GWT.create(StockService.class);
 
 	/**
 	 * Entry point method.
@@ -50,6 +51,7 @@ public class StockWatcher implements EntryPoint {
 		LoginServiceAsync loginService = GWT.create(LoginService.class);
 		loginService.login(GWT.getHostPageBaseURL(), new AsyncCallback<LoginInfo>() {
 			public void onFailure(Throwable error) {
+				handleError(error);
 			}
 
 			public void onSuccess(LoginInfo result) {
@@ -80,6 +82,8 @@ public class StockWatcher implements EntryPoint {
 		stocksFlexTable.getCellFormatter().addStyleName(0, 1, "watchListNumericColumn");
 		stocksFlexTable.getCellFormatter().addStyleName(0, 2, "watchListNumericColumn");
 		stocksFlexTable.getCellFormatter().addStyleName(0, 3, "watchListRemoveColumn");
+		
+		loadStocks();
 
 		// Assemble Add Stock panel.
 		addPanel.add(newSymbolTextBox);
@@ -124,6 +128,23 @@ public class StockWatcher implements EntryPoint {
 		});
 	}
 
+	private void loadStocks() {
+		stockService.getStocks(new AsyncCallback<String[]>() {
+			public void onFailure(Throwable error) {
+				handleError(error);
+			}
+			public void onSuccess(String[] symbols) {
+				displayStocks(symbols);
+			}
+		});
+	}
+
+	private void displayStocks(String[] symbols) {
+		for (String symbol : symbols) {
+			displayStock(symbol);
+		}
+	}
+
 	private void loadLogin() {
 		// Assemble login panel.
 		signInLink.setHref(loginInfo.getLoginUrl());
@@ -155,6 +176,21 @@ public class StockWatcher implements EntryPoint {
 		if (stocks.contains(symbol))
 			return;
 
+		addStock(symbol);
+	}
+
+	private void addStock(final String symbol) {
+		stockService.addStock(symbol, new AsyncCallback<Void>() {
+			public void onFailure(Throwable error) {
+				handleError(error);
+			}
+			public void onSuccess(Void ignore) {
+				displayStock(symbol);
+			}
+		});
+	}
+
+	private void displayStock(final String symbol) {
 		// Add the stock to the table.
 		int row = stocksFlexTable.getRowCount();
 		stocks.add(symbol);
@@ -169,9 +205,7 @@ public class StockWatcher implements EntryPoint {
 		removeStockButton.addStyleDependentName("remove");
 		removeStockButton.addClickHandler(new ClickHandler() {
 			public void onClick(ClickEvent event) {
-				int removedIndex = stocks.indexOf(symbol);
-				stocks.remove(removedIndex);
-				stocksFlexTable.removeRow(removedIndex + 1);
+				removeStock(symbol);
 			}
 		});
 		stocksFlexTable.setWidget(row, 3, removeStockButton);
@@ -180,7 +214,29 @@ public class StockWatcher implements EntryPoint {
 		refreshWatchList();
 
 	}
+	
+	private void removeStock(final String symbol) {
+		stockService.removeStock(symbol, new AsyncCallback<Void>() {
+			public void onFailure(Throwable error) {
+				handleError(error);
+			}
+			public void onSuccess(Void ignore) {
+				undisplayStock(symbol);
+			}
+		});
+	}
 
+	private void undisplayStock(String symbol) {
+		int removedIndex = stocks.indexOf(symbol);
+		stocks.remove(removedIndex);
+		stocksFlexTable.removeRow(removedIndex+1);
+	}
+	private void handleError(Throwable error) {
+		Window.alert(error.getMessage());
+		if (error instanceof NotLoggedInException) {
+			Window.Location.replace(loginInfo.getLogoutUrl());
+		}
+	}
 	/**
 	 * Generate random stock prices.
 	 */
